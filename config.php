@@ -1,5 +1,5 @@
 <?php
-$CREDENTIALS_PATH = '';
+$CREDENTIALS_PATH = ''; //Credentials as per: https://www.nidup.io/blog/manipulate-google-sheets-in-php-with-api
 $ALLOW_CUSTOM     = false; //Allow a spreadsheet defiinition to be specified in the URL, currently not implemented yet
 $ALLOW_ALL        = true; //Allow all spreadsheets to be queried into a single feed
 $DEFAULT_SHEET    = '[ALL]'; //Should match one of the spreasheet names defined below, or be left blank, or = [ALL], allows the URL to be used without specifying ?sheet=sheetname
