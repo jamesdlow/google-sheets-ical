@@ -1,5 +1,5 @@
 <?php
-$CREDENTIALS_PATH ='';
+$CREDENTIALS_PATH = '';
 $ALLOW_CUSTOM     = false; //Allow a spreadsheet defiinition to be specified in the URL, currently not implemented yet
 $ALLOW_ALL        = true; //Allow all spreadsheets to be queried into a single feed
 $DEFAULT_SHEET    = '[ALL]'; //Should match one of the spreasheet names defined below, or be left blank, or = [ALL], allows the URL to be used without specifying ?sheet=sheetname
@@ -24,7 +24,7 @@ $SHEETS[] = new SpreadSheet(
 	$timezone, //Timezone for thie calendar, default is nothing
 	$credentials, //Credentials path
 	$notused, //No longer used
-	$worksheet, //Worksheet index of the table to be used, eg. first spreadsheet is 1, default is 1
+	$notused, //No longer used, moved to range e.g.e Sheet1!A1:B20
 	$datecolumn, //Date column relative to range, eg. first column is 1, default is 1
 	$useheader, //Get item subheaders from first row, default is true
 	$subtitlecolumn, //Collumn to get a subtitle from, currently not used
@@ -37,9 +37,9 @@ $SHEETS[] = new SpreadSheet(
 );
 */
 
-$SHEETS[] = new SpreadSheet('TestSheet','pgDM1_IcKknpu0qD6viidFg','B3:F29','UTC',null,null,1,1,true,null,true,array(new CalendarEntry('Google iCal test', '16:00', 5)));
+$SHEETS[] = new SpreadSheet('TestSheet','pgDM1_IcKknpu0qD6viidFg','B3:F29','UTC',null,null,null,1,true,null,true,array(new CalendarEntry('Google iCal test', '16:00', 5)));
 $entries[] = new CalendarEntry('Multi Entry Test 1', '10:00', 5, -1);
 $entries[] = new CalendarEntry('Multi Entry Test 2', '16:00', 5);
-$SHEETS[] = new SpreadSheet('MultiEntry','pgDM1_IcKknpu0qD6viidFg','B3:F29','UTC',null,null,1,1,true,null,true,$entries);
+$SHEETS[] = new SpreadSheet('MultiEntry','pgDM1_IcKknpu0qD6viidFg','B3:F29','UTC',null,null,null,1,true,null,true,$entries);
 
 ?>
