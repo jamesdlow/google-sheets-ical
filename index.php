@@ -2,16 +2,9 @@
 error_reporting(E_ALL ^ (E_NOTICE | E_WARNING | E_DEPRECATED));
 $Version = '1.4.2';
 $URL = 'http://jameslow.com/2008/11/15/google-spreadsheet-to-ical/';
-$clientLibraryPath = '.'.substr(__DIR__,strlen(getcwd()));
-$oldPath = set_include_path(get_include_path() . PATH_SEPARATOR . $clientLibraryPath);
 
-require_once 'Zend/Loader.php';
-Zend_Loader::loadClass('Zend_Gdata');
-Zend_Loader::loadClass('Zend_Gdata_ClientLogin');
-Zend_Loader::loadClass('Zend_Gdata_Spreadsheets');
-Zend_Loader::loadClass('Zend_Gdata_App_AuthException');
-Zend_Loader::loadClass('Zend_Http_Client');
-require_once 'ical/class.iCal.inc.php';
+require_once 'lib/google-api-php-client/vendor/autoload.php';
+require_once 'lib/ical/class.iCal.inc.php';
 $iCal = (object) new iCal('', 0, ''); // (ProgrammID, Method (1 = Publish | 0 = Request), Download Directory)
 require_once 'include.php';
 require_once 'config.php';
@@ -22,13 +15,6 @@ function sheetlink($link, $text) {
 
 if (isset($_REQUEST['help'])) {
 	echo '<html><head>';
-	echo '<script src="http://www.google-analytics.com/urchin.js" type="text/javascript">
-</script>
-<script type="text/javascript">
-try {
-_uacct = "UA-10975515-5";
-urchinTracker();
-} catch(err) {}</script>';
 	echo '</head><body>';
 	echo 'Google Spreadsheet to iCal ' . $Version . '<br />';
 	echo '<a href="'.$URL.'">'.$URL.'</a><br />';
@@ -55,8 +41,12 @@ urchinTracker();
 	}
 	echo '</body></html>';
 } else {
-
 $Test = isset($_REQUEST['test']);
+
+$client = new \Google_Client();
+$client->setApplicationName('Google Sheets API');
+$client->setScopes([\Google_Service_Sheets::SPREADSHEETS]);
+$client->setAccessType('offline');
 
 //Which SpreadSheet to use
 $SheetName = $_REQUEST['sheet'];
@@ -76,7 +66,7 @@ if (isblank($SheetName)) {
 }
 
 //Query Item Name
-$Item = $_REQUEST["item"];
+$Item = $_REQUEST["item"]; //TODO: should we get from config?
 $Not = $_REQUEST["not"];
 
 if ($SheetName == '[ALL]') {
@@ -87,7 +77,7 @@ if ($SheetName == '[ALL]') {
 	}
 } else {
 	$Sheets = array();
-	$sheets = split(",",$SheetName);
+	$sheets = explode(",",$SheetName);
 	foreach ($SHEETS as $row) {
 		foreach ($sheets as $sheet) {
 			if ($row->name == $sheet) {
@@ -99,98 +89,86 @@ if ($SheetName == '[ALL]') {
 
 foreach ($Sheets as $sheet) {
 	if (!isblank($Item) || $sheet->allowall) {
-		//Username and Password
-		$User = $_REQUEST["user"];
-		$Password = $_REQUEST["password"];
-		if (isblank($User)) {
-			$User = $GENERAL_USER;
-			$Password = $GENERAL_PASSWORD;
-			if(!isblank($sheet->username)) {
-				$User = $sheet->username;
-				$Password = $sheet->password;
-			}
-			if(!isset($User)) {
-				$User = '';
-				$Password = '';
+		$Credentials = $_REQUEST["credentials"];
+		if (isblank($Credentials)) {
+			$Credentials = $CREDENTIALS_PATH;
+			if(!isblank($sheet->credentials)) {
+				$Credentials = $sheet->credentials;
 			}
 		}
 
-		$service = Zend_Gdata_Spreadsheets::AUTH_SERVICE_NAME;
-		$client = Zend_Gdata_ClientLogin::getHttpClient($User, $Password, $service);
-		$spreadsheetService = new Zend_Gdata_Spreadsheets($client);
-		$query = new Zend_Gdata_Spreadsheets_CellQuery();
-		$query->setSpreadsheetKey($sheet->key);
-		$query->setWorksheetId($sheet->worksheet);
-		$query->setRange($sheet->tablerange);
-		$cellFeed = $spreadsheetService->getCellFeed($query);
+		$client->setAuthConfig($Credentials);
+		$service = new \Google_Service_Sheets($client);
+		//$spreadsheet = $service->spreadsheets->get($sheet->key);
+		//print_r($spreadsheet);
+		$response = $service->spreadsheets_values->get($sheet->key, $sheet->tablerange);
+		$rows = $response->getValues();
+		if (!$sheet->entries) {
+			$sheet->entries = array(
+				new CalendarEntry(null, '00:00:00', 24, 0, true, false)
+			);
+		}
+		//TODO: make sure all day events
+		//TODO: make sure showing multiple events
 
-		$firsttime=true;
-		$lastrow=0;
-		$date='';
-		$lastevent=null;
-		$event=null;
+		$lastevent = null;
+		$event = null;
 		$header = null;
-
-		foreach ($cellFeed as $cellEntry) {
-			$row = $cellEntry->cell->getRow();
-			$col = $cellEntry->cell->getColumn();
-			$value = $cellEntry->cell->getText();
-			if ($Test) {
-				//echo $value;
-			}
-			if($firsttime) {
-				$rowoffset = $row-1;
-				$coloffset = $col-1;
-				$firstrow = $row;
-				$firstcol = $col;
-				$lastcol = $col+$cellFeed->getColumnCount()-1;
-				$lastrow = $row+$cellFeed->getRowCount()-1;
-				$firsttime=false;
-			}
-			$relcol = $col - $coloffset;
-			$relrow = $row - $rowoffset;
-			if ($row == $firstrow && $sheet->useheader) {
-				$header[] = $value;
-			} else {
-				if ($Test) {
-					//print_r($header);
+		$relrow = 1;
+		foreach ($rows as $row) {
+			$relcol = 1;
+			foreach ($row as $value) {
+				if ($firsttime) {
+					$firsttime = false;
 				}
-				if ($col == $firstcol) {
-					$lastevent = $event;
-					$event = new CalendarEvent();
-				}
-				if ($relcol == $sheet->datecolumn) {
-					$value = $cellEntry->cell->getNumericValue();
-					//Check if we have a new date, if we do, echo last event, otherwise combine
-					if(isdate($value) && $value != $lastevent->date) {
-						addical($iCal,$sheet,$lastevent,$header,$Item,$Not,$Test);
-						$event->date = $value;
-					} elseif(isset($lastevent)) {
-						$lastevent->items = array_merge($lastevent->items,$event->items);
-						$event = $lastevent;
-					}
-					$lastevent = null;
-				} elseif (isset($sheet->subtitlecolumn) && $relcol == $sheet->subtitlecolumn && $value != '') {
-					$event->subtitle = $value;
+				if ($row == $firstrow && $sheet->useheader) {
+					$header[] = $value;
 				} else {
-					if (!isblank($value)) {
-						$checkvalue = ($sheet->casesensitive ? $value : strtolower($value));
-						$checkitem = ($sheet->casesensitive ? $Item : strtolower($Item));
-						$checknot = ($sheet->casesensitive ? $Not : strtolower($Not));
-						if ((!isblank($Item) && $checkvalue == $checkitem) || (!isblank($Not) && $checkvalue == $checknot)) {
-							$event->containsitem = true;
+					if ($relcol == 1) {
+						$lastevent = $event;
+						$event = new CalendarEvent();
+						$event->row = $relrow;
+					}
+					if ($relcol == $sheet->datecolumn) {
+						$value = strtotime($value);
+						//Check if we have a new date, if we do, echo last event, otherwise combine
+						//Note this means we only add if we have a date
+						if(isdate($value) && (!$sheet->combine || !$lastevent || $value != $lastevent->date)) {
+							addical($iCal,$sheet,$lastevent,$header,$Item,$Not,$Test);
+							$event->date = $value;
+						} elseif(isset($lastevent)) {
+							$lastevent->items = array_merge($lastevent->items,$event->items);
+							$event = $lastevent;
 						}
-						if ($sheet->useheader) {
-							$key = $header[$relcol-1];
-						} else {
-							$key = '';
+						$lastevent = null;
+					} elseif (isset($sheet->titlecolumn) && $relcol == $sheet->titlecolumn && $value != '') {
+						$event->title = $value;
+					} elseif (isset($sheet->subtitlecolumn) && $relcol == $sheet->subtitlecolumn && $value != '') {
+						$event->subtitle = $value;
+					} else {
+						if (!isblank($value)) {
+							$checkvalue = ($sheet->casesensitive ? $value : strtolower($value));
+							$checkitem = ($sheet->casesensitive ? $Item : strtolower($Item));
+							$checknot = ($sheet->casesensitive ? $Not : strtolower($Not));
+							if ((!isblank($Item) && $checkvalue == $checkitem) || (!isblank($Not) && $checkvalue == $checknot)) {
+								$event->containsitem = true;
+							}
+							if ($sheet->useheader) {
+								$key = $header[$relcol-1];
+							} else {
+								$key = '';
+							}
+							$event->items[] = array('key' => $key, 'value' => $value);
 						}
-						$event->items[] = array('key' => $key, 'value' => $value);
 					}
 				}
+				$relcol++;
 			}
+			$relrow++;
 		}
-	addical($iCal,$sheet,$event,$header,$Item,$Not,$Test);
+		if (isdate($event->date)) {
+			addical($iCal,$sheet,$event,$header,$Item,$Not,$Test);
+		}
 	}
 }
 if (count($Sheets) == 1) {

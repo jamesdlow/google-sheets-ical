@@ -1068,9 +1068,21 @@ class iCal {
 					} // end if
 					$this->output .= (string) "ORGANIZER" . $name . ":MAILTO:" . $event->getOrganizerMail() . "\r\n";
 				} // end if
-				$this->output .= (string) "DTSTART:" . $event->getStartDate() . "\r\n";
+				
 				if (strlen(trim($event->getEndDate())) > 0) {
+					$this->output .= (string) "DTSTART:" . $event->getStartDate() . "\r\n";
 					$this->output .= (string) "DTEND:" . $event->getEndDate() . "\r\n";
+				} else {
+					/*$date = new DateTime();
+					$date->setTimestamp($event->getStartDateTS());
+					$date->add(new DateInterval('P1D'));
+					$event->setEndDate($date->getTimestamp()-1);
+					$this->output .= (string) "DTSTART:" . $event->getStartDate() . "\r\n";
+					$this->output .= (string) "DTEND:" . $event->getEndDate() . "\r\n";*/
+					//e.g. DTSTAMP;VALUE=DATE:19760401
+					
+					//https://stackoverflow.com/questions/1716237/single-day-all-day-appointments-in-ics-files
+					$this->output .= (string) "DTSTART;VALUE=DATE:" . substr($event->getStartDate(), 0, 8) . "\r\n";
 				}
 
 				if ($event->getFrequency() > 0) {

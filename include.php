@@ -1,23 +1,36 @@
 <?php
-
 class SpreadSheet {
-	function __construct ($name, $key, $tablerange, $timezone=null, $username=null, $password=null,
-		$worksheet=1, $datecolumn=1, $useheader=true, $subtitlecolumn=null, $allowall=true,
-		$entries=null, $suffixentry=false, $casesensitive=false, $link=null, $group=true) {
+	function __construct (
+			$name,
+			$key,
+			$tablerange,
+			$timezone=null,
+			$credentials=null,
+			$datecolumn=1,
+			$titlecolumn=2,
+			$subtitlecolumn=null,
+			$useheader=true,
+			$combine=false,
+			$allowall=true,
+			$entries=null,
+			$suffixentry=false,
+			$casesensitive=false,
+			$link=null,
+			$group=true) {
 		
 		$this->name = $name;
 		$this->key = $key;
 		$this->tablerange = $tablerange;
-		$this->username = $username;
-		$this->password = $password;
-		$this->worksheet = $worksheet;
+		$this->timezone = $timezone;
+		$this->credentials = $credentials;
 		$this->datecolumn = $datecolumn;
-		$this->useheader = $useheader;
+		$this->titlecolumn = $titlecolumn;
 		$this->subtitlecolumn = $subtitlecolumn;
+		$this->useheader = $useheader;
+		$this->combine = $combine;
 		$this->allowall = $allowall;
 		$this->entries = $entries;
 		$this->suffixentry = $suffixentry;
-		$this->timezone = $timezone;
 		$this->casesensitive = $casesensitive;
 		$this->link = $link;
 		$this->group = $group;
@@ -37,8 +50,10 @@ class CalendarEntry {
 
 class CalendarEvent {
 	public $date = null;
+	public $title = null;
 	public $subtitle = null;
 	public $containsitem = false;
+	public $row = null;
 	public $items = array();
 
 	function __construct () {
@@ -98,16 +113,16 @@ function addical($iCal, $sheet, $event, $header, $Item, $Not, $Test=false) {
 	}
 	if (isset($event)) {
 		if ((isblank($Item) && isblank($Not)) || ($event->containsitem && !isblank($Item)) ||  (!$event->containsitem && !isblank($Not))) {
-			$j=0;
 			foreach ($sheet->entries as $entry) {
-				$title = $entry->title;
+				$title = $event->title ? $event->title : '';
+				$title .= isblank($entry->title) ? '' : (isblank($title) ? '' : ' ').$entry->title;
 				if ($sheet->suffixentry) {
 					foreach ($event->items as $item) {
 						$title = $title . (isblank($title) ? '' : ' ') . $item['value'];
 					}
 				}
 				$description = '';
-				if ($sheet->group) {
+				/*if ($sheet->group) {
 					$final = array();
 					foreach ($event->items as $item) {
 						$found = false;
@@ -129,14 +144,16 @@ function addical($iCal, $sheet, $event, $header, $Item, $Not, $Test=false) {
 						//TODO: Combine same keys
 						$description = $description . (isblank($description) ? '' : ', ') . (isblank($item['key']) ? '' : $item['key'] . ': ') . $item['value'];
 					}
-				}
+				}*/
 				if ($entry->allday) {
-					$start = serialtoepoch($event->date + $entry->offset); //YYYY-mm-dd 00:00:00
+					//$start = serialtoepoch($event->date + $entry->offset); //YYYY-mm-dd 00:00:00
+					$start = $event->date;
 					$end = 'allday';
 				} else {
 					$times = split(':',$entry->start);
 					//echo date("Ymd H:i:s <br/>",serialtoepoch($event->date + $entry->offset))
-					$start = serialtoepoch($event->date + $entry->offset) + $times[2] + 60*($times[1] + 60*$times[0]); //TODO: Include start time
+					//$start = serialtoepoch($event->date + $entry->offset) + $times[2] + 60*($times[1] + 60*$times[0]); //TODO: Include start time
+					$start = $event->date;
 					$end = (int) ($start + 60*60*$entry->length);
 				}
 				$iCal->addEvent(
@@ -159,13 +176,11 @@ function addical($iCal, $sheet, $event, $header, $Item, $Not, $Test=false) {
 					'', // exeption dates: Array with timestamps of dates that should not be includes in the recurring event
 					'',  // Sets the time in minutes an alarm appears before the event in the programm. no alarm if empty string or 0
 					1, // Status of the event (0 = TENTATIVE, 1 = CONFIRMED, 2 = CANCELLED)
-					($sheet->link == null ? 'http://spreadsheets.google.com/ccc?key=' . $sheet->key : $sheet->link), // optional URL for that event
+					($sheet->link == null ? 'https://docs.google.com/spreadsheets/d/' . $sheet->key : $sheet->link), // optional URL for that event
 					'en', // Language of the Strings
-					$sheet->key . $event->date . $j // Optional UID for this event
-			   );
-			   $j++;
+					$sheet->key.'_'.$event->date.'_'.$event->row // Optional UID for this event
+				);
 			}
-			//print_r($event);
 		}
 	}
 	if (isset($sheet->timezone)) {

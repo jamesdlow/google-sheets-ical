@@ -23,11 +23,11 @@ $SHEETS[] = new SpreadSheet(
 	$tablerange, //Range to use for the table, this seems to work better with hardcoded range eg. A1:C15, rather than a named range
 	$timezone, //Timezone for thie calendar, default is nothing
 	$credentials, //Credentials path
-	$notused, //No longer used
-	$notused, //No longer used, moved to range e.g.e Sheet1!A1:B20
 	$datecolumn, //Date column relative to range, eg. first column is 1, default is 1
+	$titlecolumn, //Title column if being read from spreadshseet, use null to get form entries
+	$subtitlecolumn, //Column to get a subtitle from, can be null
 	$useheader, //Get item subheaders from first row, default is true
-	$subtitlecolumn, //Collumn to get a subtitle from, currently not used
+	$combine, //Get item subheaders from first row, default is true
 	$allowall, //Allow showing of all roster entries, not just those for a single queried item, default is true
 	$entries, //Array of CalendarEntry, see above example
 	$suffixentry, //Suffix entry title for data found in column, this allows the title or a suffix to the title to be specified in the spreadsheet, default is false
@@ -37,9 +37,9 @@ $SHEETS[] = new SpreadSheet(
 );
 */
 
-$SHEETS[] = new SpreadSheet('TestSheet','pgDM1_IcKknpu0qD6viidFg','B3:F29','UTC',null,null,null,1,true,null,true,array(new CalendarEntry('Google iCal test', '16:00', 5)));
+$SHEETS[] = new SpreadSheet('TestSheet','pgDM1_IcKknpu0qD6viidFg','B3:F29','UTC',null,1,null,null,true,true,true,array(new CalendarEntry('Google iCal test', '16:00', 5)));
 $entries[] = new CalendarEntry('Multi Entry Test 1', '10:00', 5, -1);
 $entries[] = new CalendarEntry('Multi Entry Test 2', '16:00', 5);
-$SHEETS[] = new SpreadSheet('MultiEntry','pgDM1_IcKknpu0qD6viidFg','B3:F29','UTC',null,null,null,1,true,null,true,$entries);
+$SHEETS[] = new SpreadSheet('MultiEntry','pgDM1_IcKknpu0qD6viidFg','B3:F29','UTC',null,1,null,null,true,true,true,$entries);
 
 ?>
